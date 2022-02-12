@@ -1,0 +1,259 @@
+---
+title: "Linear Regression Exercises"
+author: "Ethan Marcano"
+date: "2/1/2022"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+library(DT)
+```
+
+# Predicting Life Expectancy in the United States
+### A) We want to explore the data of different factors within the United States.
+First, we want to import StateData.csv.
+```{r import}
+StateData <- read_csv("StateData.csv")
+summary(StateData)
+```
+
+#### i) First, let's create a scatterplot of all of the states by putting Longitude on the x-axis and Latitude on the y-axis.
+```{r scatterplot}
+plot(StateData$Longitude, StateData$Latitude, main="United States", xlab = "Longitude", ylab = "Latitude")
+```
+
+This scatterplot was generated via a built-in R function, and used factors in the StateData dataset.
+
+
+#### ii) We want to see which region of the United States (West, North Central, South, Northeast) has the highest average high graduation rate.
+```{r gradrate}
+regiongrad <-  split(StateData$HighSchoolGrad, StateData$Region)
+
+sapply(regiongrad, mean)
+```
+With this in mind, the highest average graduation rate in 1970 is 62% in the West.
+
+#### iii) Create a box plot of the variable Murder for each Region (four box plots total)
+1. Describe the statistical distribution of the murder rate for each region.
+  
+2. Which region has the highest median murder rate?
+  
+3.The largest range of values?
+
+```{r murderplot}
+regionmurder <- split(StateData$Murder, StateData$Region)
+boxplot(regionmurder, xlab = "Region", ylab = "Murder Rate per 100k")
+```
+  
+  1. Statistical Distribution:
+  
+      + North Central has a wide range in Murder Rate, with the median low at 4. IQR is wide and corresponds to range.
+      
+      + Northeast has a small range and a low Murder Rate, with the median below North Central's 4. Interestingly, there is an outlier at 11. IQR is narrow.
+    
+      + South has a wide range and higher median Murder Rate than the other regions, at ~11. IQR is relatively narrow, but it has a wide range between Max and Min.
+    
+      + West has a medium range with a median murder rate of ~7 per 100k. IQR is somewhat narrow, and Max and Min are close to their quartiles.
+  
+  2. The south has the highest median at ~11 murders per 100k.
+  
+  3. North Central has the largest range with the min at 1 and the max at 11 (10 units).
+  
+### B) Build a linear regression model to predict life expectancy (LifeExp) using the following variables as independent variables: Population, Income, Illiteracy, Murder, HighSchoolGrad, Frost, and Area.
+```{r linearmodel}
+LifeExpPredict = lm(LifeExp ~ Population + Income + Illiteracy + Murder + HighSchoolGrad + Frost + Area, data = StateData)
+
+summary(LifeExpPredict)
+summary(LifeExpPredict)$coefficient
+```
+#### i) What is the regression equation produced by your model? Include all of the coefficients and independent variables they correspond to.
+  + $y =70.94 + .00005X_1 + -.000022X_2 + .0338X_3 + -.3011X_4 + .0489X_5 + -.0057X_6 + -.0000007X_7$
+  
+#### ii) What is the interpretation of the coefficient for Income?
+  + For an increase in income, life expectancy decreases slightly. Income is not a statistically significant determinant for life expectancy.
+  
+#### iii) Create a scatterplot with Income on the x-axis, and LifeExp on the y-axis. Does this relationship agree with the coefficient for Income in your linear regression model? Why or why not?
+```{r lifeplot}
+plot(StateData$Income, StateData$LifeExp, main = "Life Expectancy vs Income", xlab = "Income", ylab = "Life Expectancy") 
+abline(lm(StateData$LifeExp ~ StateData$Income), col="red")
+```
+  
+  + It generally agrees with the coefficient, with the relationship between the two variables being weak.
+
+### C) Rebuild the linear regression model, using the set of independent variables you think is the best for predicting LifeExp. This means any subset of the 7 independent variables previously used. Use the significance of the coefficients, the R^2^ of the model, and the interpretability of the model when selecting the final set of variables.
+```{r testmodels}
+revismodel = lm(StateData$LifeExp ~ StateData$Murder + StateData$HighSchoolGrad + StateData$Population + StateData$Frost)
+summary(revismodel)
+summary(revismodel)$coefficients
+
+
+```
+#### i) What is your new linear regression equation?
+  + $y = 71.02 + -.3001X_1 + .0466X_2 + .0005X_3 + -.0059X_4$
+  
+#### ii) Compare and contrast this model to the original model, paying special attention to the R^2^ of the model and significance of the coefficients.
+  + The multiple R^2^ of the model is slightly worse than the original. However, all of the coefficients here are statistically significant.
+  
+#### iii) Using your simplified model, create a vector of predictions for the dataset StateData.
+```{r vector, message=FALSE, warning=FALSE, digits= 2, paged.print=TRUE}
+predict_vector <- predict(revismodel)
+
+vector_frame <- data.frame(predict_vector)
+
+coordinates <- data.frame(StateData$Latitude, StateData$Longitude)
+
+est_lifexp <- cbind(coordinates, vector_frame)
+
+print(est_lifexp %>% arrange(desc(vector_frame)))
+```
+  + Which state does your model predict to have the lowest life expectancy? **Alabama**
+  + Which state actually has the lowest life expectancy? **Mississippi**
+  + Which state does your model predict to have the highest life expectancy? **Washington**
+  + Which state actually has the highest life expectancy? **Hawaii**
+  
+# Climate Change
+
+## Studying the relationship between average global temperature and several other factors.
+
+### A) Start by splitting the dataset into a training set (observations =< 2006) and a testing set (observations > 2006). This will build the model and evaluate the predictive ability of the model.  Build a linear regression model to predict Temp using all of the other variables as independent variables, using the training set.
+```{r sets}
+climate <- read_csv("ClimateChange.csv")
+
+train_data <- subset(climate, Year <= 2006)
+test_data <- subset(climate, Year > 2006)
+
+climatemodel = lm(Temp ~ CFC.11 + CFC.12 + CO2 + N2O + CH4 + Aerosols + TSI + MEI, data = train_data)
+
+summary(climatemodel)
+summary(climatemodel)$coefficients
+```
+
+#### i) What is the linear regression equation produced by your model?
+  + $y = -124.6 + 0.006X_1 +.0038X_2 +.0064X_3 + -.0165X_4 + .00012X_5 + -1.537X_6 + .0931X_7 + .0642X_8$
+  
+#### ii) Evaulate the quality of the model. What is the R^2^ value? Which independent variables are significant?
+  + The model does a good job, with most independent variables related significantly to Temp. The multiple R-squared value is 0.7509. The significant independent variables are: CFC.11, CFC.12, C02, Aerosols, TSI, and MEI.
+  
+#### iii) What is the simplest explanation for this contradiction (N20 and CFC-11 associated with high temperatures, but not clear in model)
+  + The model as a whole reflects recent industrialization, and while there is a negative correlation for the two variables, it does not reflect real world values.
+  
+#### iv) Compute the correlations between all independent variables in the training set. Which independent variables is N20 highly correlated with (>0.7)? Which independent variables is CFC.11 high correlated with (>0.7)?
+```{r correlations}
+cor(train_data)
+```
+  + N20 correlations: Year, C02, CH4, CFC.12
+  + CFC.11 correlations: CH4, CFC.12
+  
+### B) Build a new linear regression model, this time only using MEI, TSI, Aerosols, and N20 as the independent variables. Use the training data set.
+```{r newclimate}
+
+revised_climate = lm(Temp ~ N2O + MEI + TSI + Aerosols, data = train_data)
+summary(revised_climate)
+
+summary(revised_climate)$coefficients
+```
+#### i) How does the coefficient for N20 in this model compare to the coefficient in the previous model?
+  + The N20 coefficient in this model is positively correlated with Temp, as opposed to negatively in the previous model.
+    
+#### ii) How does the coefficient of this model compare to the previous one? Consider the R^2^ value and the signficance of the independent variables when answering this question.
+  + The coefficient of the model is similar, but the original model has a slightly higher R^2^ value. The independent variables are all highly related to each other.
+    
+### C) Using the simplified model you created in part (B), calculate predictions for the testing dataset. What is the R^2^ on the test set? What does this tell you about the model?
+
+```{r testmodel}
+
+test_climate = lm(Temp ~ N2O + MEI + TSI + Aerosols, data = test_data)
+
+summary(test_climate)
+predict(test_climate)
+```
+    
+  + The Multiple R^2^ is 0.5212.
+  + The model has a low R^2^, suggesting that the independent variables do not significantly explain Temperature variance.
+
+# Hyundai Elantra
+
+## Forecasting Hyundai Elantra sales.
+
+### A) Split the dataset into training (2010, 2011, 2012) and testing (2013, 2014). Build a linear regression model to predict monthly Elantra sales (ElantraSales) using Unemployment, Queries, CPI.Energy, and CPI.All. Use the training set to build the model.
+
+```{r elantra-training}
+elantra <- read_csv("Elantra.csv")
+
+etrain_data <- subset(elantra, Year <= 2012)
+etest_data <- subset(elantra, Year > 2012)
+
+elantramodel = lm(ElantraSales ~ Unemployment + Queries + CPI.Energy + CPI.All, data = etrain_data)
+
+summary(elantramodel)
+summary(elantramodel)$coefficients
+
+```
+#### i) What is the linear regression equation produced by your model? Make sure to give the coefficients for each of the independent variables.
+  + $y = 95385.4 + -3179.9X_1 + 19.02X_2 + 38.51X_3 + -297.6X_4$
+
+#### ii) What is the R^2^ of the model?
+  + The multiple R^2^ is .4282.
+
+#### iii) Which variables are signficant? What does this tell you about the model?
+  + None of the variables are statistically significant. This model shows that those independent variables do not significantly explain variance in elantra sales.
+
+### B) We want to incorporate seasonality into our model by using the Month variable. Build a new linear regression model, this time using the Month variable as an additional independent variable, using the training data.
+```{r monthmodel}
+
+monthmodel = lm(ElantraSales ~ Month + Unemployment + Queries + CPI.Energy + CPI.All, data = etrain_data)
+
+summary(monthmodel)
+summary(monthmodel)$coefficients
+```
+
+#### i) Describe your new model. What is the regression equation? What is the R^2^? Which variables are signficant?
+  + $y = 148330.5 + 110.69X_1 + -4137.3X_2 + 21.19X_3 + 54.18X_4 + -518X_5$
+  + The multiple R^2^ is .4344.
+  + The queries variable is statistically significant.
+  
+#### ii) We are currently modeling Month as a numeric variable. This causes our model to see Feburary as "larger" than January and so on. Is this the right way to model this variable? What if we made Month a categorical variable instead?
+  + This is the wrong way to model the variable, as "time" is not increasing over itself.
+  + Making month a categorical variable would be the correct way to model sales over time.
+
+### C) Create a new linear regression model, this time with Month model as a categorical variable. You can manually change the values, or in R, convert Month to a factor variable.
+```{r newmonth}
+  etrain_data$factormonth <- as.factor(etrain_data$Month)
+
+  emonthmodel = lm(ElantraSales ~ factormonth + Unemployment + Queries + CPI.Energy + CPI.All, data = etrain_data)
+  
+  summary(emonthmodel)
+  summary(emonthmodel)$coefficients
+```
+
+#### i) Describe your new model. What is the regression equation? What is the R^2^? Which variables are signficant?
+  + $y = 312509 + 2255X_1 + 6697X_2 + 7557X_3 + 7420X_4 + 9216X_5 + 9930X_6 +7940X_7 +5013X_8 +2500X_9 +3239{X_1}_0+5294{X_1}_1 + -7739{X_1}_2 + -4.764{X_1}_3 + 228.6{X_1}_4 + -1343{X_1}_5$
+  + The multiple R^2^ is 0.8193.
+  + The significant variables are factormonths3-9 (Spring and Summer), Unemployment, and both CPI stats.
+
+#### ii) Using this model, make predictions on the test set. Remember to convert the Month variable to a categorical variable in the test set before making predictions. What is the R^2^ of the model on the test set?
+```{r elantrapredict}
+etest2013 <- subset(etest_data, Year < 2014)
+
+testsales = lm(ElantraSales ~ Unemployment + Queries + CPI.Energy + CPI.All + as.factor(Month), data = etest_data)
+
+testsales2013 = lm(ElantraSales ~ Unemployment + Queries + CPI.Energy + CPI.All + as.factor(Month), data = etest2013)
+
+summary(testsales2013)
+summary(testsales)
+predict(testsales)
+
+```
+  + Ran into an error regarding the model and month factorization and got a multiple R-squared of 1.
+  + The predictions are still interesting regarding their showing of seasonality, even with the error.
+  
+### D) From what you saw in the problem, what can you conclude about predicting Hyundai Elantra sales? Do you think these conclusions generalize to predicting sales for other products?
+  + Many of the independent variables are not useful on their own, but introducing months shows that there is a seasonality associated with Hyundai Elantra sales. You could probably predict sales for many products based on cultural patterns.
+
+### E) If you could collect additional independent variables for this problem which variables do you think would be useful for predicting sales?
+  + I would collect region and inflation rate. It would be interesting to see which regions have higher sales, as well as if inflation has an effect on sales overall (both in car price and loan).
